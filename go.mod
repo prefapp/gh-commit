@@ -1,6 +1,6 @@
 module github.com/prefapp/gh-commit
 
-go 1.22.2
+go 1.3
 
 require github.com/cli/go-gh/v2 v2.11.1
 
