@@ -16,7 +16,8 @@ func main() {
 
 	currentDir, err := os.Getwd()
 
-	repo := flag.String("R", "", "Repository to use")
+
+	repo := flag.String("R","", "Repository to use")
 	branch := flag.String("b", "main", "Branch to use")
 	dir := flag.String("d", currentDir, "Directory to use")
 
@@ -27,25 +28,19 @@ func main() {
 		return
 	}
 
-
-	detectedRepo, err := repository.Current()
-
-	if *repo == "" && err != nil {
-		
-		fmt.Println("Could not detect repository, please provide one with -R")
-		return
-	}
-
-	repoStr := fmt.Sprintf("%s/%s", detectedRepo.Owner, detectedRepo.Name)
-	repo = &repoStr
-
 	host, _ := auth.DefaultHost()
 	token, _ := auth.TokenForHost(host)
 	
 	client := github.NewClient(nil).WithAuthToken(token)
 
+	parsedRepo, err := repository.Parse(*repo)
+
+	if err != nil {
+		panic(err)
+	}
+
 	// upload files
-	ref, _, err := git.UploadToRepo(context.Background(), client, detectedRepo, *dir, *branch)
+	ref, _, err := git.UploadToRepo(context.Background(), client, parsedRepo, *dir, *branch)
 
 	if err != nil {
 		fmt.Println("Error uploading files:", err)
