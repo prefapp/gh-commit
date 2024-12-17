@@ -20,6 +20,7 @@ func main() {
 	repo := flag.String("R","", "Repository to use")
 	branch := flag.String("b", "main", "Branch to use")
 	dir := flag.String("d", currentDir, "Directory to use")
+	message := flag.String("m", "Commit message", "Commit message")
 
 	flag.Parse()
 
@@ -40,7 +41,7 @@ func main() {
 	}
 
 	// upload files
-	ref, _, err := git.UploadToRepo(context.Background(), client, parsedRepo, *dir, *branch)
+	ref, _, err := git.UploadToRepo(context.Background(), client, parsedRepo, *dir, *branch, *message)
 
 	if err != nil {
 		fmt.Println("Error uploading files:", err)

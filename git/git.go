@@ -90,7 +90,7 @@ func setBranchToCommit(ctx context.Context, client *github.Client, repo reposito
 	}, false)
 }
 
-func UploadToRepo(ctx context.Context,client *github.Client, repo repository.Repository, path string, branch string) (*github.Reference, *github.Response, error) {
+func UploadToRepo(ctx context.Context,client *github.Client, repo repository.Repository, path string, branch string, message string) (*github.Reference, *github.Response, error) {
 	
 	// Get the current currentCommit
 	currentCommit, err := getCurrentCommit(ctx, client, repo, branch)
@@ -127,7 +127,7 @@ func UploadToRepo(ctx context.Context,client *github.Client, repo repository.Rep
 		return nil, nil, err
 	}
 
-	commit, _, err := createNewCommit(ctx, client, repo, tree, currentCommit, "Foo")
+	commit, _, err := createNewCommit(ctx, client, repo, tree, currentCommit, message)
 	if err != nil {
 		return nil, nil, err
 	}
