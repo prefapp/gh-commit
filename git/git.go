@@ -87,7 +87,7 @@ func setBranchToCommit(ctx context.Context, client *github.Client, repo reposito
 		Object: &github.GitObject{
 			SHA: commit.SHA,
 		},
-	}, false)
+	}, true)
 }
 
 func UploadToRepo(ctx context.Context,client *github.Client, repo repository.Repository, path string, branch string, message string) (*github.Reference, *github.Response, error) {
