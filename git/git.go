@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cli/go-gh/v2/pkg/repository"
 	"github.com/google/go-github/v67/github"
@@ -90,7 +91,48 @@ func setBranchToCommit(ctx context.Context, client *github.Client, repo reposito
 	}, true)
 }
 
-func UploadToRepo(ctx context.Context,client *github.Client, repo repository.Repository, path string, branch string, message string) (*github.Reference, *github.Response, error) {
+func listFilesOrigin(ctx context.Context, client *github.Client, repo repository.Repository, branch string) ([]string, error) {
+	
+	// Get the current commit
+	currentCommit, err := getCurrentCommit(ctx, client, repo, branch)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the tree
+	tree, _, err := client.Git.GetTree(ctx, repo.Owner, repo.Name, *currentCommit.Commit.Tree.SHA, true)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the files
+	files := []string{}
+	for _, entry := range tree.Entries {
+		files = append(files, *entry.Path)
+	}
+
+	return files, nil
+}
+
+func getDeletedFiles(basePath string, originFiles []string, deletedPath string, updatedFiles []string) []string {
+
+	files := []string{}
+	for _, f := range originFiles {
+		if deletedPath == "" && !utils.FileExistsInList(updatedFiles, filepath.Join(basePath, f)) {
+			files = append(files, f)
+			continue
+		}
+		if strings.HasPrefix(f, deletedPath) && !utils.FileExistsInList(updatedFiles, f) {
+			files = append(files, f)
+			continue
+		}
+	}
+
+	return files
+
+}
+
+func UploadToRepo(ctx context.Context,client *github.Client, repo repository.Repository, path string, deletePath string, branch string, message string) (*github.Reference, *github.Response, error) {
 	
 	// Get the current currentCommit
 	currentCommit, err := getCurrentCommit(ctx, client, repo, branch)
@@ -101,11 +143,37 @@ func UploadToRepo(ctx context.Context,client *github.Client, repo repository.Rep
 
 	// List all files in the path
 	files := utils.ListFiles(path, []string{".git"})
+	// Get a list of deleted files, this means that the files that are in the origin repository inspecting the tree but in the files list
+	// are not present
+	originFiles, err := listFilesOrigin(ctx, client, repo, branch)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
 
 
 	// Create a blob for each file
 	blobs := []*github.Blob{}
 	blobPaths := []string{}
+
+	fmt.Println(deletePath)
+	fmt.Println(originFiles)
+	fmt.Println(files)
+
+	// Delete the files
+	// Get the files that are deleted
+	deletedFiles := getDeletedFiles(path,originFiles, deletePath, files)
+	for _, f := range deletedFiles {
+		blobs = append(blobs, &github.Blob{
+			SHA: nil,
+		})
+		blobPaths = append(blobPaths, f)
+	}
+
+	fmt.Println(deletedFiles)
+
+	fmt.Println(blobs, blobPaths)
 
 	for _, file := range files {
 		blob, _, _ := createBlobForFile(ctx, client, repo, file)
@@ -116,7 +184,7 @@ func UploadToRepo(ctx context.Context,client *github.Client, repo repository.Rep
 		// Debug log the relative path
 		fmt.Printf("Relative path: %s\n", relativePath)
 
-		if err != nil {
+		if err != nil {	
 			return nil, nil, err
 		}
 		blobPaths = append(blobPaths, relativePath)

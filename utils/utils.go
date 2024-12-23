@@ -60,3 +60,13 @@ func ListFiles(path string, ignoredFolders []string) []string {
 	}
 	return files
 }
+
+func FileExistsInList(files []string, target string) bool {
+	fmt.Printf("Checking if %s exists in %v", target, files)
+	for _, file := range files {
+		if file == target {
+			return true
+		}
+	}
+	return false
+}

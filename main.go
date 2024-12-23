@@ -21,7 +21,7 @@ func main() {
 	branch := flag.String("b", "main", "Branch to use")
 	dir := flag.String("d", currentDir, "Directory to use")
 	message := flag.String("m", "Commit message", "Commit message")
-
+	deletePath := flag.String("delete-path", "", "Path in the origin repository to delete files from before adding new ones")
 	flag.Parse()
 
 	if dir == nil && err != nil {
@@ -41,7 +41,7 @@ func main() {
 	}
 
 	// upload files
-	ref, _, err := git.UploadToRepo(context.Background(), client, parsedRepo, *dir, *branch, *message)
+	ref, _, err := git.UploadToRepo(context.Background(), client, parsedRepo, *dir, *deletePath, *branch, *message)
 
 	if err != nil {
 		fmt.Println("Error uploading files:", err)
