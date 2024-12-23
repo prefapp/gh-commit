@@ -101,8 +101,9 @@ func listFilesOrigin(ctx context.Context, client *github.Client, repo repository
 
 	// Get the tree
 	tree, _, err := client.Git.GetTree(ctx, repo.Owner, repo.Name, *currentCommit.Commit.Tree.SHA, true)
+	// If there is an error here most likely the tree is not found and the repository is empty
 	if err != nil {
-		return nil, err
+		return []string{}, nil
 	}
 
 	// Get the files
