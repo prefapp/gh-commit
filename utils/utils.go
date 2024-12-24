@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"os"
 )
 
@@ -55,14 +54,12 @@ func ListFiles(path string, ignoredFolders []string) []string {
 		} else {
 			// if the file is a regular file
 			files = append(files, path+string(os.PathSeparator)+fi.Name())
-			fmt.Println(path + string(os.PathSeparator) + fi.Name())
 		}
 	}
 	return files
 }
 
 func FileExistsInList(files []string, target string) bool {
-	fmt.Printf("Checking if %s exists in %v", target, files)
 	for _, file := range files {
 		if file == target {
 			return true

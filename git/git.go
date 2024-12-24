@@ -123,7 +123,7 @@ func getDeletedFiles(basePath string, originFiles []string, deletedPath string, 
 			files = append(files, f)
 			continue
 		}
-		if strings.HasPrefix(f, deletedPath) && !utils.FileExistsInList(updatedFiles, f) {
+		if strings.HasPrefix(f, deletedPath) && !utils.FileExistsInList(updatedFiles, filepath.Join(basePath, f)) {
 			files = append(files, f)
 			continue
 		}
@@ -158,13 +158,12 @@ func UploadToRepo(ctx context.Context,client *github.Client, repo repository.Rep
 	blobs := []*github.Blob{}
 	blobPaths := []string{}
 
-	fmt.Println(deletePath)
-	fmt.Println(originFiles)
-	fmt.Println(files)
-
 	// Delete the files
 	// Get the files that are deleted
 	deletedFiles := getDeletedFiles(path,originFiles, deletePath, files)
+	fmt.Println("--- Deleted files--")
+	fmt.Println(deletedFiles)
+
 	for _, f := range deletedFiles {
 		blobs = append(blobs, &github.Blob{
 			SHA: nil,
@@ -172,18 +171,16 @@ func UploadToRepo(ctx context.Context,client *github.Client, repo repository.Rep
 		blobPaths = append(blobPaths, f)
 	}
 
-	fmt.Println(deletedFiles)
-
-	fmt.Println(blobs, blobPaths)
-
+	// Get the updated files
+	fmt.Println("--- Updated files--")
+	fmt.Println(files)
+		
 	for _, file := range files {
 		blob, _, _ := createBlobForFile(ctx, client, repo, file)
 
 		blobs = append(blobs, blob)
 		relativePath, err := filepath.Rel(path, file)
 
-		// Debug log the relative path
-		fmt.Printf("Relative path: %s\n", relativePath)
 
 		if err != nil {	
 			return nil, nil, err
