@@ -54,12 +54,15 @@ func createNewTree(ctx context.Context, client *github.Client, repo repository.R
 	tree := []*github.TreeEntry{}
 
 	for i, blob := range blobs {
-		tree = append(tree, &github.TreeEntry{
+		treeEntry := &github.TreeEntry{
 			Path: &blobPaths[i],
 			Mode: github.String("100644"),
 			Type: github.String("blob"),
-			SHA:  blob.SHA,
-		})
+		}
+		if blob.SHA != nil {
+			treeEntry.SHA = blob.SHA
+		}
+		tree = append(tree, treeEntry)
 	}
 
 	return client.Git.CreateTree(ctx, repo.Owner, repo.Name, parentTreeSha, tree)
@@ -174,7 +177,7 @@ func UploadToRepo(ctx context.Context,client *github.Client, repo repository.Rep
 	// Get the updated files
 	fmt.Println("--- Updated files--")
 	fmt.Println(files)
-		
+
 	for _, file := range files {
 		blob, _, _ := createBlobForFile(ctx, client, repo, file)
 
