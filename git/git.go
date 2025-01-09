@@ -60,6 +60,13 @@ func createNewTree(ctx context.Context, client *github.Client, repo repository.R
 			Mode: github.String("100644"),
 			Type: github.String("blob"),
 		}
+
+		if blob == nil {
+
+			continue
+
+		}
+
 		if blob.SHA != nil {
 			treeEntry.SHA = blob.SHA
 		}
