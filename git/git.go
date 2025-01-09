@@ -122,6 +122,8 @@ func listFilesOrigin(ctx context.Context, client *github.Client, repo repository
 func getDeletedFiles(basePath string, originFiles []string, deletedPath string, updatedFiles []string) []string {
 
 	files := []string{}
+	fmt.Println("--- Origin files--")
+	fmt.Println(originFiles)
 	for _, f := range originFiles {
 		if deletedPath == "" && !utils.FileExistsInList(updatedFiles, filepath.Join(basePath, f)) && (strings.HasSuffix(f, ".yml") || strings.HasSuffix(f, ".yaml")) {
 			files = append(files, f)
