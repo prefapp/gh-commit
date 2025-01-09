@@ -13,7 +13,7 @@ import (
 )
 
 func getCurrentCommit(ctx context.Context, client *github.Client, repo repository.Repository, branch string) (*github.RepositoryCommit, error) {
-	
+
 	// Get the branch reference
 	branchRef, _, err := client.Git.GetRef(ctx, repo.Owner, repo.Name, fmt.Sprintf("heads/%s", branch))
 
@@ -36,7 +36,7 @@ func getCurrentCommit(ctx context.Context, client *github.Client, repo repositor
 }
 
 func createBlobForFile(ctx context.Context, client *github.Client, repo repository.Repository, file string) (*github.Blob, *github.Response, error) {
-	
+
 	// Read the file content
 	content, err := os.ReadFile(file)
 
@@ -47,10 +47,11 @@ func createBlobForFile(ctx context.Context, client *github.Client, repo reposito
 	return client.Git.CreateBlob(ctx, repo.Owner, repo.Name, &github.Blob{
 		Content:  github.String(string(content)),
 		Encoding: github.String("utf-8"),
-})}
+	})
+}
 
 func createNewTree(ctx context.Context, client *github.Client, repo repository.Repository, blobs []*github.Blob, blobPaths []string, parentTreeSha string) (*github.Tree, *github.Response, error) {
-	
+
 	tree := []*github.TreeEntry{}
 
 	for i, blob := range blobs {
@@ -68,8 +69,8 @@ func createNewTree(ctx context.Context, client *github.Client, repo repository.R
 	return client.Git.CreateTree(ctx, repo.Owner, repo.Name, parentTreeSha, tree)
 }
 
-func createNewCommit(ctx context.Context, client *github.Client, repo repository.Repository,currentTree *github.Tree, parentCommit *github.RepositoryCommit, message string) (*github.Commit, *github.Response, error) {
-	
+func createNewCommit(ctx context.Context, client *github.Client, repo repository.Repository, currentTree *github.Tree, parentCommit *github.RepositoryCommit, message string) (*github.Commit, *github.Response, error) {
+
 	commit := &github.Commit{
 		Message: github.String(message),
 		Tree:    &github.Tree{SHA: github.String(currentTree.GetSHA())},
@@ -83,7 +84,7 @@ func createNewCommit(ctx context.Context, client *github.Client, repo repository
 }
 
 func setBranchToCommit(ctx context.Context, client *github.Client, repo repository.Repository, branch string, commit *github.Commit) (*github.Reference, *github.Response, error) {
-	
+
 	ref := fmt.Sprintf("refs/heads/%s", branch)
 
 	return client.Git.UpdateRef(ctx, repo.Owner, repo.Name, &github.Reference{
@@ -95,7 +96,7 @@ func setBranchToCommit(ctx context.Context, client *github.Client, repo reposito
 }
 
 func listFilesOrigin(ctx context.Context, client *github.Client, repo repository.Repository, branch string) ([]string, error) {
-	
+
 	// Get the current commit
 	currentCommit, err := getCurrentCommit(ctx, client, repo, branch)
 	if err != nil {
@@ -122,7 +123,7 @@ func getDeletedFiles(basePath string, originFiles []string, deletedPath string, 
 
 	files := []string{}
 	for _, f := range originFiles {
-		if deletedPath == "" && !utils.FileExistsInList(updatedFiles, filepath.Join(basePath, f)) {
+		if deletedPath == "" && !utils.FileExistsInList(updatedFiles, filepath.Join(basePath, f)) && (strings.HasSuffix(f, ".yml") || strings.HasSuffix(f, ".yaml")) {
 			files = append(files, f)
 			continue
 		}
@@ -136,14 +137,13 @@ func getDeletedFiles(basePath string, originFiles []string, deletedPath string, 
 
 }
 
-func UploadToRepo(ctx context.Context,client *github.Client, repo repository.Repository, path string, deletePath string, branch string, message string) (*github.Reference, *github.Response, error) {
-	
+func UploadToRepo(ctx context.Context, client *github.Client, repo repository.Repository, path string, deletePath string, branch string, message string) (*github.Reference, *github.Response, error) {
+
 	// Get the current currentCommit
 	currentCommit, err := getCurrentCommit(ctx, client, repo, branch)
 	if err != nil {
 		panic(err)
 	}
-
 
 	// List all files in the path
 	files := utils.ListFiles(path, []string{".git"})
@@ -155,15 +155,13 @@ func UploadToRepo(ctx context.Context,client *github.Client, repo repository.Rep
 		return nil, nil, err
 	}
 
-
-
 	// Create a blob for each file
 	blobs := []*github.Blob{}
 	blobPaths := []string{}
 
 	// Delete the files
 	// Get the files that are deleted
-	deletedFiles := getDeletedFiles(path,originFiles, deletePath, files)
+	deletedFiles := getDeletedFiles(path, originFiles, deletePath, files)
 	fmt.Println("--- Deleted files--")
 	fmt.Println(deletedFiles)
 
@@ -184,8 +182,7 @@ func UploadToRepo(ctx context.Context,client *github.Client, repo repository.Rep
 		blobs = append(blobs, blob)
 		relativePath, err := filepath.Rel(path, file)
 
-
-		if err != nil {	
+		if err != nil {
 			return nil, nil, err
 		}
 		blobPaths = append(blobPaths, relativePath)
