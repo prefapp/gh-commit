@@ -147,6 +147,8 @@ func UploadToRepo(ctx context.Context, client *github.Client, repo repository.Re
 
 	// List all files in the path
 	files := utils.ListFiles(path, []string{".git"})
+	fmt.Println("--- Files--")
+	fmt.Println(files)
 	// Get a list of deleted files, this means that the files that are in the origin repository inspecting the tree but in the files list
 	// are not present
 	originFiles, err := listFilesOrigin(ctx, client, repo, branch)
