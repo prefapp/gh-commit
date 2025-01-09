@@ -8,6 +8,7 @@ import (
 
 	"github.com/cli/go-gh/v2/pkg/auth"
 	"github.com/cli/go-gh/v2/pkg/repository"
+	"github.com/gofri/go-github-ratelimit/github_ratelimit"
 	"github.com/google/go-github/v67/github"
 	"github.com/prefapp/gh-commit/git"
 )
@@ -32,7 +33,12 @@ func main() {
 	host, _ := auth.DefaultHost()
 	token, _ := auth.TokenForHost(host)
 	
-	client := github.NewClient(nil).WithAuthToken(token)
+	rateLimiter, err := github_ratelimit.NewRateLimitWaiterClient(nil)
+	if err != nil {
+	  panic(err)
+	}
+	
+	client := github.NewClient(rateLimiter).WithAuthToken(token)
 
 	parsedRepo, err := repository.Parse(*repo)
 
