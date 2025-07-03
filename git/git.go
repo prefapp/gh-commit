@@ -2,15 +2,31 @@ package git
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/cli/go-gh/v2/pkg/repository"
+	"github.com/go-git/go-git/v6"
 	"github.com/google/go-github/v67/github"
-	"github.com/prefapp/gh-commit/utils"
 )
+
+func getGitPorcelain(dirPath string) (git.Status, error) {
+	repo, err := git.PlainOpen(dirPath)
+	if err != nil {
+		return nil, err
+	}
+	wt, err := repo.Worktree()
+	if err != nil {
+		return nil, err
+	}
+	status, err := wt.Status()
+	if err != nil {
+		return nil, err
+	}
+	return status, nil
+}
 
 func getCurrentCommit(ctx context.Context, client *github.Client, repo repository.Repository, branch string) (*github.RepositoryCommit, error) {
 
@@ -102,48 +118,31 @@ func setBranchToCommit(ctx context.Context, client *github.Client, repo reposito
 	}, true)
 }
 
-func listFilesOrigin(ctx context.Context, client *github.Client, repo repository.Repository, branch string) ([]string, error) {
+func getGroupedFiles(fileStatuses git.Status) ([]string, []string, []string, error) {
+	addedFiles := []string{}
+	updatedFiles := []string{}
+	deletedFiles := []string{}
 
-	// Get the current commit
-	currentCommit, err := getCurrentCommit(ctx, client, repo, branch)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get the tree
-	tree, _, err := client.Git.GetTree(ctx, repo.Owner, repo.Name, *currentCommit.Commit.Tree.SHA, true)
-	// If there is an error here most likely the tree is not found and the repository is empty
-	if err != nil {
-		return []string{}, nil
-	}
-
-	// Get the files
-	files := []string{}
-	for _, entry := range tree.Entries {
-		files = append(files, *entry.Path)
-	}
-
-	return files, nil
-}
-
-func getDeletedFiles(basePath string, originFiles []string, deletedPath string, updatedFiles []string) []string {
-
-	files := []string{}
-	fmt.Println("--- Origin files--")
-	fmt.Println(originFiles)
-	for _, f := range originFiles {
-		if deletedPath == "" && !utils.FileExistsInList(updatedFiles, filepath.Join(basePath, f)) && (strings.HasSuffix(f, ".yml") || strings.HasSuffix(f, ".yaml")) {
-			files = append(files, f)
-			continue
-		}
-		if strings.HasPrefix(f, deletedPath) && !utils.FileExistsInList(updatedFiles, filepath.Join(basePath, f)) {
-			files = append(files, f)
-			continue
+	for file, status := range fileStatuses {
+		switch fmt.Sprintf("%c", status.Worktree) {
+		case "D":
+			deletedFiles = append(deletedFiles, file)
+		case "M", "R", "C", "U":
+			updatedFiles = append(updatedFiles, file)
+		case "?", "A":
+			addedFiles = append(addedFiles, file)
+		default:
+			return nil, nil, nil, errors.New(
+				fmt.Sprintf(
+					"Unsupported status code %c for file %s",
+					status.Worktree,
+					file,
+				),
+			)
 		}
 	}
 
-	return files
-
+	return addedFiles, updatedFiles, deletedFiles, nil
 }
 
 func UploadToRepo(ctx context.Context, client *github.Client, repo repository.Repository, path string, deletePath string, branch string, message string) (*github.Reference, *github.Response, error) {
@@ -151,55 +150,53 @@ func UploadToRepo(ctx context.Context, client *github.Client, repo repository.Re
 	// Get the current currentCommit
 	currentCommit, err := getCurrentCommit(ctx, client, repo, branch)
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
 
-	// List all files in the path
-	files := utils.ListFiles(path, []string{".git"})
-	fmt.Println("--- Files--")
-	fmt.Println(files)
-	// Get a list of deleted files, this means that the files that are in the origin repository inspecting the tree but in the files list
-	// are not present
-	originFiles, err := listFilesOrigin(ctx, client, repo, branch)
+	fileStatuses, err := getGitPorcelain(path)
 
+	addedFiles, updatedFiles, deletedFiles, err := getGroupedFiles(fileStatuses)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// Create a blob for each file
 	blobs := []*github.Blob{}
-	blobPaths := []string{}
+	filePaths := []string{}
 
 	// Delete the files
 	// Get the files that are deleted
-	deletedFiles := getDeletedFiles(path, originFiles, deletePath, files)
 	fmt.Println("--- Deleted files--")
 	fmt.Println(deletedFiles)
 
-	for _, f := range deletedFiles {
-		blobs = append(blobs, &github.Blob{
-			SHA: nil,
-		})
-		blobPaths = append(blobPaths, f)
+	for _, file := range deletedFiles {
+		if strings.HasPrefix(file, deletePath) {
+			blobs = append(blobs, &github.Blob{
+				SHA: nil,
+			})
+
+			filePaths = append(filePaths, file)
+		}
 	}
 
+	addedAndUpdatedFiles := append(updatedFiles, addedFiles...)
 	// Get the updated files
 	fmt.Println("--- Updated files--")
-	fmt.Println(files)
+	fmt.Println(addedAndUpdatedFiles)
 
-	for _, file := range files {
-		blob, _, _ := createBlobForFile(ctx, client, repo, file)
+	for _, file := range addedAndUpdatedFiles {
+		blob, _, err := createBlobForFile(ctx, client, repo, file)
 
 		blobs = append(blobs, blob)
-		relativePath, err := filepath.Rel(path, file)
 
 		if err != nil {
 			return nil, nil, err
 		}
-		blobPaths = append(blobPaths, relativePath)
+
+		filePaths = append(filePaths, file)
 	}
 
-	tree, _, err := createNewTree(ctx, client, repo, blobs, blobPaths, currentCommit.GetSHA())
+	tree, _, err := createNewTree(ctx, client, repo, blobs, filePaths, currentCommit.GetSHA())
 	if err != nil {
 		return nil, nil, err
 	}

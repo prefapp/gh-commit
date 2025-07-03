@@ -17,8 +17,7 @@ func main() {
 
 	currentDir, err := os.Getwd()
 
-
-	repo := flag.String("R","", "Repository to use")
+	repo := flag.String("R", "", "Repository to use")
 	branch := flag.String("b", "main", "Branch to use")
 	dir := flag.String("d", currentDir, "Directory to use")
 	message := flag.String("m", "Commit message", "Commit message")
@@ -32,12 +31,12 @@ func main() {
 
 	host, _ := auth.DefaultHost()
 	token, _ := auth.TokenForHost(host)
-	
+
 	rateLimiter, err := github_ratelimit.NewRateLimitWaiterClient(nil)
 	if err != nil {
-	  panic(err)
+		panic(err)
 	}
-	
+
 	client := github.NewClient(rateLimiter).WithAuthToken(token)
 
 	parsedRepo, err := repository.Parse(*repo)
