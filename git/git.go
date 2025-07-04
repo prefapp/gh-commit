@@ -28,6 +28,21 @@ func getGitPorcelain(dirPath string) (git.Status, error) {
 	return status, nil
 }
 
+func GetHeadBranch(repoPath string) (string, error) {
+	repo, err := git.PlainOpen(repoPath)
+	if err != nil {
+		return "", err
+	}
+
+	head, err := repo.Head()
+	if err != nil {
+		return "", err
+	}
+	headBranchName := strings.Split(head.Name().String(), "/")[2]
+
+	return headBranchName, nil
+}
+
 func getCurrentCommit(ctx context.Context, client *github.Client, repo repository.Repository, branch string) (*github.RepositoryCommit, error) {
 
 	// Get the branch reference
@@ -110,12 +125,24 @@ func setBranchToCommit(ctx context.Context, client *github.Client, repo reposito
 
 	ref := fmt.Sprintf("refs/heads/%s", branch)
 
-	return client.Git.UpdateRef(ctx, repo.Owner, repo.Name, &github.Reference{
-		Ref: github.String(ref),
-		Object: &github.GitObject{
-			SHA: commit.SHA,
-		},
-	}, true)
+	refExists, _, _ := client.Git.GetRef(ctx, repo.Owner, repo.Name, ref)
+
+	if refExists == nil {
+		return client.Git.CreateRef(ctx, repo.Owner, repo.Name, &github.Reference{
+			Ref: github.String(ref),
+			Object: &github.GitObject{
+				SHA: commit.SHA,
+			},
+		})
+	} else {
+		return client.Git.UpdateRef(ctx, repo.Owner, repo.Name, &github.Reference{
+			Ref: github.String(ref),
+			Object: &github.GitObject{
+				SHA: commit.SHA,
+			},
+		}, true)
+	}
+
 }
 
 func getGroupedFiles(fileStatuses git.Status) ([]string, []string, []string, error) {
@@ -145,10 +172,10 @@ func getGroupedFiles(fileStatuses git.Status) ([]string, []string, []string, err
 	return addedFiles, updatedFiles, deletedFiles, nil
 }
 
-func UploadToRepo(ctx context.Context, client *github.Client, repo repository.Repository, path string, deletePath string, branch string, message string) (*github.Reference, *github.Response, error) {
+func UploadToRepo(ctx context.Context, client *github.Client, repo repository.Repository, path string, deletePath string, branch string, headBranch string, message string) (*github.Reference, *github.Response, error) {
 
 	// Get the current currentCommit
-	currentCommit, err := getCurrentCommit(ctx, client, repo, branch)
+	currentCommit, err := getCurrentCommit(ctx, client, repo, headBranch)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -207,5 +234,4 @@ func UploadToRepo(ctx context.Context, client *github.Client, repo repository.Re
 	}
 
 	return setBranchToCommit(ctx, client, repo, branch, commit)
-
 }
