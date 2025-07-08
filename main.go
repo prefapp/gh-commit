@@ -16,8 +16,9 @@ import (
 func main() {
 
 	currentDir, err := os.Getwd()
+	defaultRepo, err := repository.Current()
 
-	repo := flag.String("R", "", "Repository to use")
+	repo := flag.String("R", fmt.Sprintf("%s/%s", defaultRepo.Owner, defaultRepo.Name), "Repository to use")
 	branch := flag.String("b", "main", "Branch to use")
 	dir := flag.String("d", currentDir, "Directory to use")
 	message := flag.String("m", "Commit message", "Commit message")
