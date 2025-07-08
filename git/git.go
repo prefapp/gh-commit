@@ -175,7 +175,7 @@ func getGroupedFiles(fileStatuses git.Status) ([]string, []string, []string, err
 func UploadToRepo(ctx context.Context, client *github.Client, repo repository.Repository, path string, deletePath string, branch string, headBranch string, message string) (*github.Reference, *github.Response, error) {
 
 	// Get the current currentCommit
-	currentCommit, err := getCurrentCommit(ctx, client, repo, branch)
+	currentCommit, err := getCurrentCommit(ctx, client, repo, headBranch)
 	if err != nil {
 		return nil, nil, err
 	}
