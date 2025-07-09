@@ -17,6 +17,7 @@ func main() {
 
 	currentDir, err := os.Getwd()
 	defaultRepo, err := repository.Current()
+	fmt.Println("Default current dir:", currentDir)
 
 	repo := flag.String("R", fmt.Sprintf("%s/%s", defaultRepo.Owner, defaultRepo.Name), "Repository to use")
 	branch := flag.String("b", "main", "Branch to use")
@@ -27,6 +28,7 @@ func main() {
 	flag.Parse()
 
 	if *headBranch == "" {
+		fmt.Println("Actual current dir:", dir)
 		*headBranch, err = git.GetHeadBranch(*dir)
 
 		if err != nil {
