@@ -172,7 +172,17 @@ func getGroupedFiles(fileStatuses git.Status) ([]string, []string, []string, err
 	return addedFiles, updatedFiles, deletedFiles, nil
 }
 
-func UploadToRepo(ctx context.Context, client *github.Client, repo repository.Repository, path string, deletePath string, branch string, headBranch string, message string) (*github.Reference, *github.Response, error) {
+func UploadToRepo(
+	ctx context.Context,
+	client *github.Client,
+	repo repository.Repository,
+	path string,
+	deletePath string,
+	branch string,
+	headBranch string,
+	message string,
+	allowEmpty *bool,
+) (*github.Reference, *github.Response, error) {
 
 	// Get the current currentCommit
 	currentCommit, err := getCurrentCommit(ctx, client, repo, headBranch)
@@ -186,52 +196,113 @@ func UploadToRepo(ctx context.Context, client *github.Client, repo repository.Re
 	if err != nil {
 		return nil, nil, err
 	}
+	addedAndUpdatedFiles := append(updatedFiles, addedFiles...)
 
-	// Create a blob for each file
-	blobs := []*github.Blob{}
-	filePaths := []string{}
+	if len(addedAndUpdatedFiles) == 0 && len(deletedFiles) == 0 {
+		if *allowEmpty {
+			// In order to push an empty commit, we first need to create a
+			// dummy file and commit it to the branch
+			fileName := "dummy.txt"
+			dummy, err := os.Create(fileName)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer dummy.Close()
 
-	// Delete the files
-	// Get the files that are deleted
-	fmt.Println("--- Deleted files--")
-	fmt.Println(deletedFiles)
+			blob, _, err := createBlobForFile(ctx, client, repo, fileName)
+			tree, _, err := createNewTree(
+				ctx,
+				client,
+				repo,
+				[]*github.Blob{blob},
+				[]string{fileName},
+				currentCommit.GetSHA(),
+			)
+			if err != nil {
+				return nil, nil, err
+			}
 
-	for _, file := range deletedFiles {
-		if strings.HasPrefix(file, deletePath) {
-			blobs = append(blobs, &github.Blob{
-				SHA: nil,
-			})
+			commit, _, err := createNewCommit(
+				ctx, client, repo, tree,
+				currentCommit, message,
+			)
+			if err != nil {
+				return nil, nil, err
+			}
+			setBranchToCommit(ctx, client, repo, branch, commit)
+
+			// Then we create an empty tree and set the branch's commit
+			// to its SHA
+			emptyTree, _, err := createNewTree(
+				ctx,
+				client,
+				repo,
+				[]*github.Blob{{SHA: nil}},
+				[]string{fileName},
+				commit.GetSHA(),
+			)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			emptyCommit, _, err := createNewCommit(
+				ctx, client, repo, emptyTree,
+				currentCommit, message,
+			)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			return setBranchToCommit(ctx, client, repo, branch, emptyCommit)
+		} else {
+			return nil, nil, errors.New("No new files to commit")
+		}
+	} else {
+		// Create a blob for each file
+		blobs := []*github.Blob{}
+		filePaths := []string{}
+
+		// Delete the files
+		// Get the files that are deleted
+		fmt.Println("--- Deleted files--")
+		fmt.Println(deletedFiles)
+
+		for _, file := range deletedFiles {
+			if strings.HasPrefix(file, deletePath) {
+				blobs = append(blobs, &github.Blob{
+					SHA: nil,
+				})
+
+				filePaths = append(filePaths, file)
+			}
+		}
+
+		// Get the updated files
+		fmt.Println("--- Updated files--")
+		fmt.Println(addedAndUpdatedFiles)
+
+		for _, file := range addedAndUpdatedFiles {
+			blob, _, err := createBlobForFile(ctx, client, repo, file)
+
+			blobs = append(blobs, blob)
+
+			if err != nil {
+				return nil, nil, err
+			}
 
 			filePaths = append(filePaths, file)
 		}
-	}
 
-	addedAndUpdatedFiles := append(updatedFiles, addedFiles...)
-	// Get the updated files
-	fmt.Println("--- Updated files--")
-	fmt.Println(addedAndUpdatedFiles)
-
-	for _, file := range addedAndUpdatedFiles {
-		blob, _, err := createBlobForFile(ctx, client, repo, file)
-
-		blobs = append(blobs, blob)
-
+		tree, _, err := createNewTree(ctx, client, repo, blobs, filePaths, currentCommit.GetSHA())
 		if err != nil {
 			return nil, nil, err
 		}
 
-		filePaths = append(filePaths, file)
-	}
+		commit, _, err := createNewCommit(ctx, client, repo, tree, currentCommit, message)
+		if err != nil {
+			return nil, nil, err
+		}
 
-	tree, _, err := createNewTree(ctx, client, repo, blobs, filePaths, currentCommit.GetSHA())
-	if err != nil {
-		return nil, nil, err
+		return setBranchToCommit(ctx, client, repo, branch, commit)
 	}
-
-	commit, _, err := createNewCommit(ctx, client, repo, tree, currentCommit, message)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return setBranchToCommit(ctx, client, repo, branch, commit)
 }
