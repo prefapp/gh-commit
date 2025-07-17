@@ -232,7 +232,6 @@ func UploadToRepo(
 			if err != nil {
 				return nil, nil, err
 			}
-			setBranchToCommit(ctx, client, repo, branch, commit)
 
 			// Then we delete it and set that commit as the new head commit
 			// of the branch. This results in a commit that has no changes
