@@ -182,6 +182,7 @@ func UploadToRepo(
 	branch string,
 	headBranch string,
 	message string,
+	createEmpty *bool,
 	allowEmpty *bool,
 ) (*github.Reference, *github.Response, error) {
 
@@ -199,120 +200,120 @@ func UploadToRepo(
 	}
 	addedAndUpdatedFiles := append(updatedFiles, addedFiles...)
 
-	if len(addedAndUpdatedFiles) == 0 && len(deletedFiles) == 0 {
-		if *allowEmpty {
-			// In order to push an empty commit, we first need to create a
-			// dummy file and commit it to the branch
-			fileName := fmt.Sprintf("%x", sha256.Sum256(
-				[]byte("firestartr-empty-commit-dummy.txt"),
-			))
-			dummy, err := os.Create(fileName)
-			if err != nil {
-				return nil, nil, err
-			}
-			defer dummy.Close()
-
-			blob, _, err := createBlobForFile(ctx, client, repo, fileName)
-			tree, _, err := createNewTree(
-				ctx,
-				client,
-				repo,
-				[]*github.Blob{blob},
-				[]string{fileName},
-				currentCommit.GetSHA(),
-			)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			commit, _, err := createNewCommit(
-				ctx, client, repo, tree,
-				currentCommit, message,
-			)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			// Then we delete it and set that commit as the new head commit
-			// of the branch. This results in a commit that has no changes
-			// with the main branch, but a different hash
-			emptyTree, _, err := createNewTree(
-				ctx,
-				client,
-				repo,
-				[]*github.Blob{{SHA: nil}},
-				[]string{fileName},
-				commit.GetSHA(),
-			)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			emptyCommit, _, err := createNewCommit(
-				ctx, client, repo, emptyTree,
-				currentCommit, message,
-			)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			ref, resp, respErr := setBranchToCommit(ctx, client, repo, branch, emptyCommit)
-
-			err = os.Remove(fileName)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			return ref, resp, respErr
-		} else {
-			return nil, nil, errors.New("No new files to commit")
+	if (len(addedAndUpdatedFiles) == 0 && len(deletedFiles) == 0 && *allowEmpty) || *createEmpty {
+		// In order to push an empty commit, we first need to create a
+		// dummy file and commit it to the branch
+		fileName := fmt.Sprintf("%x", sha256.Sum256(
+			[]byte("firestartr-empty-commit-dummy.txt"),
+		))
+		dummy, err := os.Create(fileName)
+		if err != nil {
+			return nil, nil, err
 		}
+		defer dummy.Close()
+
+		blob, _, err := createBlobForFile(ctx, client, repo, fileName)
+		tree, _, err := createNewTree(
+			ctx,
+			client,
+			repo,
+			[]*github.Blob{blob},
+			[]string{fileName},
+			currentCommit.GetSHA(),
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		commit, _, err := createNewCommit(
+			ctx, client, repo, tree,
+			currentCommit, message,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		// Then we delete it and set that commit as the new head commit
+		// of the branch. This results in a commit that has no changes
+		// with the main branch, but a different hash
+		emptyTree, _, err := createNewTree(
+			ctx,
+			client,
+			repo,
+			[]*github.Blob{{SHA: nil}},
+			[]string{fileName},
+			commit.GetSHA(),
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		emptyCommit, _, err := createNewCommit(
+			ctx, client, repo, emptyTree,
+			currentCommit, message,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		ref, resp, respErr := setBranchToCommit(ctx, client, repo, branch, emptyCommit)
+
+		err = os.Remove(fileName)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		return ref, resp, respErr
 	} else {
-		// Create a blob for each file
-		blobs := []*github.Blob{}
-		filePaths := []string{}
+		if len(addedAndUpdatedFiles) == 0 && len(deletedFiles) == 0 {
+			return nil, nil, errors.New("No new files to commit")
+		} else {
+			// Create a blob for each file
+			blobs := []*github.Blob{}
+			filePaths := []string{}
 
-		// Delete the files
-		// Get the files that are deleted
-		fmt.Println("--- Deleted files--")
-		fmt.Println(deletedFiles)
+			// Delete the files
+			// Get the files that are deleted
+			fmt.Println("--- Deleted files--")
+			fmt.Println(deletedFiles)
 
-		for _, file := range deletedFiles {
-			if strings.HasPrefix(file, deletePath) {
-				blobs = append(blobs, &github.Blob{
-					SHA: nil,
-				})
+			for _, file := range deletedFiles {
+				if strings.HasPrefix(file, deletePath) {
+					blobs = append(blobs, &github.Blob{
+						SHA: nil,
+					})
+
+					filePaths = append(filePaths, file)
+				}
+			}
+
+			// Get the updated files
+			fmt.Println("--- Updated files--")
+			fmt.Println(addedAndUpdatedFiles)
+
+			for _, file := range addedAndUpdatedFiles {
+				blob, _, err := createBlobForFile(ctx, client, repo, file)
+
+				blobs = append(blobs, blob)
+
+				if err != nil {
+					return nil, nil, err
+				}
 
 				filePaths = append(filePaths, file)
 			}
-		}
 
-		// Get the updated files
-		fmt.Println("--- Updated files--")
-		fmt.Println(addedAndUpdatedFiles)
-
-		for _, file := range addedAndUpdatedFiles {
-			blob, _, err := createBlobForFile(ctx, client, repo, file)
-
-			blobs = append(blobs, blob)
-
+			tree, _, err := createNewTree(ctx, client, repo, blobs, filePaths, currentCommit.GetSHA())
 			if err != nil {
 				return nil, nil, err
 			}
 
-			filePaths = append(filePaths, file)
-		}
+			commit, _, err := createNewCommit(ctx, client, repo, tree, currentCommit, message)
+			if err != nil {
+				return nil, nil, err
+			}
 
-		tree, _, err := createNewTree(ctx, client, repo, blobs, filePaths, currentCommit.GetSHA())
-		if err != nil {
-			return nil, nil, err
+			return setBranchToCommit(ctx, client, repo, branch, commit)
 		}
-
-		commit, _, err := createNewCommit(ctx, client, repo, tree, currentCommit, message)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		return setBranchToCommit(ctx, client, repo, branch, commit)
 	}
 }

@@ -24,7 +24,8 @@ func main() {
 	message := flag.String("m", "Commit message", "Commit message")
 	deletePath := flag.String("delete-path", "", "Path in the origin repository to delete files from before adding new ones")
 	headBranch := flag.String("h", "", "Head branch name")
-	allowEmpty := flag.Bool("e", false, "Allow empty commits")
+	createEmpty := flag.Bool("e", false, "Create an empty commit")
+	allowEmpty := flag.Bool("a", false, "Allow empty commits")
 	flag.Parse()
 
 	if *headBranch == "" {
@@ -60,7 +61,7 @@ func main() {
 	ref, _, err := git.UploadToRepo(
 		context.Background(), client, parsedRepo,
 		*dir, *deletePath, *branch, *headBranch,
-		*message, allowEmpty,
+		*message, createEmpty, allowEmpty,
 	)
 
 	if err != nil {
