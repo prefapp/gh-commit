@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"os"
@@ -202,7 +203,9 @@ func UploadToRepo(
 		if *allowEmpty {
 			// In order to push an empty commit, we first need to create a
 			// dummy file and commit it to the branch
-			fileName := "dummy.txt"
+			fileName := fmt.Sprintf("%x", sha256.Sum256(
+				[]byte("firestartr-empty-commit-dummy.txt"),
+			))
 			dummy, err := os.Create(fileName)
 			if err != nil {
 				return nil, nil, err
@@ -231,8 +234,9 @@ func UploadToRepo(
 			}
 			setBranchToCommit(ctx, client, repo, branch, commit)
 
-			// Then we create an empty tree and set the branch's commit
-			// to its SHA
+			// Then we delete it and set that commit as the new head commit
+			// of the branch. This results in a commit that has no changes
+			// with the main branch, but a different hash
 			emptyTree, _, err := createNewTree(
 				ctx,
 				client,
@@ -253,7 +257,14 @@ func UploadToRepo(
 				return nil, nil, err
 			}
 
-			return setBranchToCommit(ctx, client, repo, branch, emptyCommit)
+			ref, resp, respErr := setBranchToCommit(ctx, client, repo, branch, emptyCommit)
+
+			err = os.Remove(fileName)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			return ref, resp, respErr
 		} else {
 			return nil, nil, errors.New("No new files to commit")
 		}
