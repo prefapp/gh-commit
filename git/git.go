@@ -203,14 +203,15 @@ func UploadToRepo(
 	if (len(addedAndUpdatedFiles) == 0 && len(deletedFiles) == 0 && *allowEmpty) || *createEmpty {
 		// In order to push an empty commit, we first need to create a
 		// dummy file and commit it to the branch
-		fileName := fmt.Sprintf("%x", sha256.Sum256(
-			[]byte("firestartr-empty-commit-dummy.txt"),
-		))
-		dummy, err := os.Create(fileName)
+		dummy, err := os.CreateTemp("", "firestartr-empty-commit-dummy-*.txt")
 		if err != nil {
 			return nil, nil, err
 		}
-		defer dummy.Close()
+		defer func() {
+			dummy.Close()
+			os.Remove(dummy.Name())
+		}()
+		fileName := dummy.Name()
 
 		blob, _, err := createBlobForFile(ctx, client, repo, fileName)
 		tree, _, err := createNewTree(
