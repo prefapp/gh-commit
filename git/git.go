@@ -214,6 +214,9 @@ func UploadToRepo(
 		fileName := dummy.Name()
 
 		blob, _, err := createBlobForFile(ctx, client, repo, fileName)
+		if err != nil {
+			return nil, nil, err
+		}
 		tree, _, err := createNewTree(
 			ctx,
 			client,
