@@ -265,9 +265,7 @@ func UploadToRepo(
 
 		return ref, resp, respErr
 	} else {
-		if len(addedAndUpdatedFiles) == 0 && len(deletedFiles) == 0 {
-			return nil, nil, errors.New("No new files to commit")
-		} else {
+		if len(addedAndUpdatedFiles) > 0 || len(deletedFiles) > 0 {
 			// Create a blob for each file
 			blobs := []*github.Blob{}
 			filePaths := []string{}
@@ -314,6 +312,8 @@ func UploadToRepo(
 			}
 
 			return setBranchToCommit(ctx, client, repo, branch, commit)
+		} else {
+			return nil, nil, errors.New("no new files to commit")
 		}
 	}
 }
