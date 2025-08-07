@@ -29,7 +29,7 @@ func getGitPorcelain(dirPath string) (git.Status, error) {
 	return status, nil
 }
 
-// Gets the name of the currently checked out branch (HEAD) in the given repository path, to use as the base branch for the commit.
+// Returns the name of the currently checked out branch (HEAD) in the given repository path, to use as the base branch for the commit.
 func GetBaseBranch(repoPath string) (string, error) {
 	repo, err := git.PlainOpen(repoPath)
 	if err != nil {
