@@ -29,7 +29,8 @@ func getGitPorcelain(dirPath string) (git.Status, error) {
 	return status, nil
 }
 
-func GetHeadBranch(repoPath string) (string, error) {
+// Returns the name of the currently checked out branch (HEAD) in the given repository path, to use as the base branch for the commit.
+func GetBaseBranch(repoPath string) (string, error) {
 	repo, err := git.PlainOpen(repoPath)
 	if err != nil {
 		return "", err
@@ -39,9 +40,9 @@ func GetHeadBranch(repoPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	headBranchName := strings.Split(head.Name().String(), "/")[2]
+	baseBranchName := strings.Split(head.Name().String(), "/")[2]
 
-	return headBranchName, nil
+	return baseBranchName, nil
 }
 
 func getCurrentCommit(ctx context.Context, client *github.Client, repo repository.Repository, branch string) (*github.RepositoryCommit, error) {
@@ -178,14 +179,14 @@ func UploadToRepo(
 	path string,
 	deletePath string,
 	branch string,
-	headBranch string,
+	baseBranch string,
 	message string,
 	createEmpty *bool,
 	allowEmpty *bool,
 ) (*github.Reference, *github.Response, error) {
 
 	// Get the current currentCommit
-	currentCommit, err := getCurrentCommit(ctx, client, repo, headBranch)
+	currentCommit, err := getCurrentCommit(ctx, client, repo, baseBranch)
 	if err != nil {
 		return nil, nil, err
 	}

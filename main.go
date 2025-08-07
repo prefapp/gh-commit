@@ -23,13 +23,13 @@ func main() {
 	dir := flag.String("d", currentDir, "Directory to use")
 	message := flag.String("m", "Commit message", "Commit message")
 	deletePath := flag.String("delete-path", "", "Path in the origin repository to delete files from before adding new ones")
-	headBranch := flag.String("h", "", "Head branch name")
+	baseBranch := flag.String("base", "", "Base branch name")
 	createEmpty := flag.Bool("e", false, "Create an empty commit")
 	allowEmpty := flag.Bool("a", false, "Allow empty commits")
 	flag.Parse()
 
-	if *headBranch == "" {
-		*headBranch, err = git.GetHeadBranch(*dir)
+	if *baseBranch == "" {
+		*baseBranch, err = git.GetBaseBranch(*dir)
 
 		if err != nil {
 			panic(err)
@@ -60,7 +60,7 @@ func main() {
 	// upload files
 	ref, _, err := git.UploadToRepo(
 		context.Background(), client, parsedRepo,
-		*dir, *deletePath, *branch, *headBranch,
+		*dir, *deletePath, *branch, *baseBranch,
 		*message, createEmpty, allowEmpty,
 	)
 
