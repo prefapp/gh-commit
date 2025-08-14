@@ -16,7 +16,7 @@ import (
 const (
 	exitOk         int = 0
 	exitError      int = 1
-	exitNoNewFiles int = 10
+	exitNoNewFiles int = 9
 )
 
 func getGitPorcelain(dirPath string) (git.Status, error) {
@@ -265,6 +265,9 @@ func UploadToRepo(
 		}
 
 		ref, resp, respErr := setBranchToCommit(ctx, client, repo, branch, emptyCommit)
+		if respErr != nil {
+			return nil, nil, respErr, exitError
+		}
 
 		err = os.Remove(fileName)
 		if err != nil {
