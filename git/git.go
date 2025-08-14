@@ -16,7 +16,7 @@ import (
 const (
 	exitOk         int = 0
 	exitError      int = 1
-	exitNoNewFiles int = 9
+	exitNoNewFiles int = 10
 )
 
 func getGitPorcelain(dirPath string) (git.Status, error) {
