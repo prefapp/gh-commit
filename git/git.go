@@ -13,6 +13,12 @@ import (
 	"github.com/google/go-github/v67/github"
 )
 
+const (
+	exitOk         int = 0
+	exitError      int = 1
+	exitNoNewFiles int = 10
+)
+
 func getGitPorcelain(dirPath string) (git.Status, error) {
 	repo, err := git.PlainOpen(dirPath)
 	if err != nil {
@@ -183,19 +189,19 @@ func UploadToRepo(
 	message string,
 	createEmpty *bool,
 	allowEmpty *bool,
-) (*github.Reference, *github.Response, error) {
+) (*github.Reference, *github.Response, error, int) {
 
 	// Get the current currentCommit
 	currentCommit, err := getCurrentCommit(ctx, client, repo, baseBranch)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, err, exitError
 	}
 
 	fileStatuses, err := getGitPorcelain(path)
 
 	addedFiles, updatedFiles, deletedFiles, err := getGroupedFiles(fileStatuses)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, err, exitError
 	}
 	addedAndUpdatedFiles := append(updatedFiles, addedFiles...)
 
@@ -207,13 +213,13 @@ func UploadToRepo(
 		))
 		dummy, err := os.Create(fileName)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, err, exitError
 		}
 		defer dummy.Close()
 
 		blob, _, err := createBlobForFile(ctx, client, repo, fileName)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, err, exitError
 		}
 		tree, _, err := createNewTree(
 			ctx,
@@ -224,7 +230,7 @@ func UploadToRepo(
 			currentCommit.GetSHA(),
 		)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, err, exitError
 		}
 
 		commit, _, err := createNewCommit(
@@ -232,7 +238,7 @@ func UploadToRepo(
 			currentCommit, message,
 		)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, err, exitError
 		}
 
 		// Then we delete it and set that commit as the new head commit
@@ -247,7 +253,7 @@ func UploadToRepo(
 			commit.GetSHA(),
 		)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, err, exitError
 		}
 
 		emptyCommit, _, err := createNewCommit(
@@ -255,17 +261,20 @@ func UploadToRepo(
 			currentCommit, message,
 		)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, err, exitError
 		}
 
 		ref, resp, respErr := setBranchToCommit(ctx, client, repo, branch, emptyCommit)
+		if respErr != nil {
+			return nil, nil, respErr, exitError
+		}
 
 		err = os.Remove(fileName)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, err, exitError
 		}
 
-		return ref, resp, respErr
+		return ref, resp, respErr, exitOk
 	} else {
 		if len(addedAndUpdatedFiles) > 0 || len(deletedFiles) > 0 {
 			// Create a blob for each file
@@ -297,7 +306,7 @@ func UploadToRepo(
 				blobs = append(blobs, blob)
 
 				if err != nil {
-					return nil, nil, err
+					return nil, nil, err, exitError
 				}
 
 				filePaths = append(filePaths, file)
@@ -305,17 +314,22 @@ func UploadToRepo(
 
 			tree, _, err := createNewTree(ctx, client, repo, blobs, filePaths, currentCommit.GetSHA())
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, err, exitError
 			}
 
 			commit, _, err := createNewCommit(ctx, client, repo, tree, currentCommit, message)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, err, exitError
 			}
 
-			return setBranchToCommit(ctx, client, repo, branch, commit)
+			ref, resp, err := setBranchToCommit(ctx, client, repo, branch, commit)
+			if err != nil {
+				return nil, nil, err, exitError
+			}
+
+			return ref, resp, err, exitOk
 		} else {
-			return nil, nil, errors.New("no new files to commit")
+			return nil, nil, errors.New("no new files to commit"), exitNoNewFiles
 		}
 	}
 }

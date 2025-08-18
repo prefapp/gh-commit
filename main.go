@@ -58,7 +58,7 @@ func main() {
 	}
 
 	// upload files
-	ref, _, err := git.UploadToRepo(
+	ref, _, err, exitCode := git.UploadToRepo(
 		context.Background(), client, parsedRepo,
 		*dir, *deletePath, *branch, *baseBranch,
 		*message, createEmpty, allowEmpty,
@@ -66,9 +66,10 @@ func main() {
 
 	if err != nil {
 		fmt.Println("Error uploading files:", err)
-		return
+	} else {
+		fmt.Println("Files uploaded to", *repo, "on branch", *branch, "with ref", *ref)
 	}
 
-	fmt.Println("Files uploaded to", *repo, "on branch", *branch, "with ref", *ref)
+	os.Exit(exitCode)
 
 }
