@@ -24,8 +24,15 @@ func main() {
 	message := flag.String("m", "Commit message", "Commit message")
 	deletePath := flag.String("delete-path", "", "Path in the origin repository to delete files from before adding new ones")
 	baseBranch := flag.String("base", "", "Base branch name")
-	createEmpty := flag.Bool("e", false, "Create an empty commit")
-	allowEmpty := flag.Bool("a", false, "Allow empty commits")
+	createEmptyCommit := flag.Bool( // Setting this to true will force the creation of a commit with no changes
+		"e", false, "Create empty commit",
+	)
+	allowEmptyCommit := flag.Bool( // Setting this to true will upload a new commit to the repo even if no files were changed
+		"a", false, "Upload commit even if no files were changed",
+	)
+	allowEmptyTree := flag.Bool( // Setting this to true will allow uploading commits that result in an empty tree (i.e. deleting all files)
+		"allow-empty-tree", false, "Upload commits that result in an empty tree",
+	)
 	flag.Parse()
 
 	if *baseBranch == "" {
@@ -59,9 +66,9 @@ func main() {
 
 	// upload files
 	ref, _, err, exitCode := git.UploadToRepo(
-		context.Background(), client, parsedRepo,
-		*dir, *deletePath, *branch, *baseBranch,
-		*message, createEmpty, allowEmpty,
+		context.Background(), client, parsedRepo, *dir,
+		*deletePath, *branch, *baseBranch, *message,
+		createEmptyCommit, allowEmptyCommit, allowEmptyTree,
 	)
 
 	if err != nil {

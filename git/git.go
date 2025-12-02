@@ -254,8 +254,9 @@ func UploadToRepo(
 	branch string,
 	baseBranch string,
 	message string,
-	createEmpty *bool,
-	allowEmpty *bool,
+	createEmptyCommit *bool,
+	allowEmptyCommit *bool,
+	allowEmptyTree *bool,
 ) (*github.Reference, *github.Response, error, int) {
 	// Get the current currentCommit
 	currentCommit, err := getCurrentCommit(ctx, client, repo, baseBranch)
@@ -269,23 +270,34 @@ func UploadToRepo(
 	}
 
 	if allFilesDeleted {
-		fmt.Println("All files from the repository have been deleted.")
-		fmt.Println("Commiting an empty tree to the branch...")
-		emptyTreeCommit, _, err := createNewEmtpyTreeCommit(
-			ctx, client, repo, currentCommit, message,
-		)
-		if err != nil {
-			return nil, nil, err, exitError
+		if *allowEmptyTree {
+			fmt.Println("All files from the repository have been deleted.")
+			fmt.Println("--allow-empty-tree flag is set.")
+			fmt.Println("Commiting an empty tree to the branch...")
+			emptyTreeCommit, _, err := createNewEmtpyTreeCommit(
+				ctx, client, repo, currentCommit, message,
+			)
+			if err != nil {
+				return nil, nil, err, exitError
+			}
+
+			ref, resp, respErr := setBranchToCommit(
+				ctx, client, repo, branch, emptyTreeCommit,
+			)
+			if respErr != nil {
+				return nil, nil, respErr, exitError
+			}
+
+			return ref, resp, respErr, exitOk
 		}
 
-		ref, resp, respErr := setBranchToCommit(
-			ctx, client, repo, branch, emptyTreeCommit,
-		)
-		if respErr != nil {
-			return nil, nil, respErr, exitError
-		}
-
-		return ref, resp, respErr, exitOk
+		// If all files are deleted and allowEmptyTree is not set, return an error
+		return nil, nil, errors.New(
+			"All files in the repository have been deleted, but the " +
+				"--allow-empty-tree parameter has not been set to true. " +
+				"Please use it if you actually want to commit these changes " +
+				"(the repo will be empty as the result). Aborting.",
+		), exitError
 	}
 
 	fileStatuses, err := getGitPorcelain(path)
@@ -298,7 +310,7 @@ func UploadToRepo(
 
 	if (len(addedAndUpdatedFiles) == 0 &&
 		len(deletedFiles) == 0 &&
-		*allowEmpty) || *createEmpty {
+		*allowEmptyCommit) || *createEmptyCommit {
 		// In order to push an empty commit, we first need to create a
 		// dummy file and commit it to the branch
 		fileName := fmt.Sprintf("%x", sha256.Sum256(
