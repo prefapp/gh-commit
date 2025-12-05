@@ -155,7 +155,7 @@ func createNewCommit(
 	return client.Git.CreateCommit(ctx, repo.Owner, repo.Name, commit, nil)
 }
 
-func createNewEmtpyTreeCommit(
+func createNewEmptyTreeCommit(
 	ctx context.Context,
 	client *github.Client,
 	repo repository.Repository,
