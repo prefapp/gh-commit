@@ -301,6 +301,9 @@ func UploadToRepo(
 	}
 
 	fileStatuses, err := getGitPorcelain(path)
+	if err != nil {
+		return nil, nil, err, exitError
+	}
 
 	addedFiles, updatedFiles, deletedFiles, err := getGroupedFiles(fileStatuses)
 	if err != nil {
