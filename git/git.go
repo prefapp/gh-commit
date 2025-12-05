@@ -273,7 +273,7 @@ func UploadToRepo(
 		if *allowEmptyTree {
 			fmt.Println("All files from the repository have been deleted.")
 			fmt.Println("--allow-empty-tree flag is set.")
-			fmt.Println("Commiting an empty tree to the branch...")
+			fmt.Println("Committing an empty tree to the branch...")
 			emptyTreeCommit, _, err := createNewEmtpyTreeCommit(
 				ctx, client, repo, currentCommit, message,
 			)
