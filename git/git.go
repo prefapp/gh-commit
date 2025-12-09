@@ -232,8 +232,8 @@ func getGroupedFiles(
 	return addedFiles, updatedFiles, deletedFiles, nil
 }
 
-func checkIfAllFilesDeleted() (bool, error) {
-	filenameList, err := os.ReadDir(".")
+func checkIfAllFilesDeleted(path string) (bool, error) {
+	filenameList, err := os.ReadDir(path)
 	if err != nil {
 		return false, err
 	}
@@ -264,7 +264,7 @@ func UploadToRepo(
 		return nil, nil, err, exitError
 	}
 
-	allFilesDeleted, err := checkIfAllFilesDeleted()
+	allFilesDeleted, err := checkIfAllFilesDeleted(path)
 	if err != nil {
 		return nil, nil, err, exitError
 	}
