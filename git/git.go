@@ -17,7 +17,9 @@ const (
 	exitOk         int = 0
 	exitError      int = 1
 	exitNoNewFiles int = 10
-	emptyTreeSHA       = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
+	// The SHA-1 hash of the empty Git tree object
+	emptyTreeSHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 )
 
 func getGitPorcelain(dirPath string) (git.Status, error) {
@@ -232,7 +234,7 @@ func getGroupedFiles(
 	return addedFiles, updatedFiles, deletedFiles, nil
 }
 
-func checkIfAllFilesDeleted(path string) (bool, error) {
+func isRepositoryEmpty(path string) (bool, error) {
 	filenameList, err := os.ReadDir(path)
 	if err != nil {
 		return false, err
@@ -264,12 +266,12 @@ func UploadToRepo(
 		return nil, nil, err, exitError
 	}
 
-	allFilesDeleted, err := checkIfAllFilesDeleted(path)
+	repoIsEmpty, err := isRepositoryEmpty(path)
 	if err != nil {
 		return nil, nil, err, exitError
 	}
 
-	if allFilesDeleted {
+	if repoIsEmpty {
 		if *allowEmptyTree {
 			fmt.Println("All files from the repository have been deleted.")
 			fmt.Println("--allow-empty-tree flag is set.")
@@ -302,7 +304,9 @@ func UploadToRepo(
 
 	fileStatuses, err := getGitPorcelain(path)
 	if err != nil {
+
 		return nil, nil, err, exitError
+
 	}
 
 	addedFiles, updatedFiles, deletedFiles, err := getGroupedFiles(fileStatuses)
