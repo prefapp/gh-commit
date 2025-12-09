@@ -155,7 +155,7 @@ func createNewCommit(
 	return client.Git.CreateCommit(ctx, repo.Owner, repo.Name, commit, nil)
 }
 
-func createNewEmtpyTreeCommit(
+func createNewEmptyTreeCommit(
 	ctx context.Context,
 	client *github.Client,
 	repo repository.Repository,
@@ -273,8 +273,8 @@ func UploadToRepo(
 		if *allowEmptyTree {
 			fmt.Println("All files from the repository have been deleted.")
 			fmt.Println("--allow-empty-tree flag is set.")
-			fmt.Println("Commiting an empty tree to the branch...")
-			emptyTreeCommit, _, err := createNewEmtpyTreeCommit(
+			fmt.Println("Committing an empty tree to the branch...")
+			emptyTreeCommit, _, err := createNewEmptyTreeCommit(
 				ctx, client, repo, currentCommit, message,
 			)
 			if err != nil {
@@ -301,6 +301,9 @@ func UploadToRepo(
 	}
 
 	fileStatuses, err := getGitPorcelain(path)
+	if err != nil {
+		return nil, nil, err, exitError
+	}
 
 	addedFiles, updatedFiles, deletedFiles, err := getGroupedFiles(fileStatuses)
 	if err != nil {
